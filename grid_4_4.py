@@ -8,8 +8,6 @@ DELTA = [(0,-1), (0, 1), (-1,0), (1,0)]
 G = 0.75
 N = 4
 
-
-
 def is_valid(x, y):
     return x >= 0 and x < N and y >= 0 and y < N
 
@@ -96,7 +94,7 @@ if __name__ == "__main__":
     val1 = 0 if my_coordinate != (2,2) else 1
     new_val = 0
 
-    for iteration in xrange(2):
+    for iteration in xrange(iteration_count):
         # Begin iteration
         for dest_rank in to_send_1.get(rank, []):
             comm.send(val1, dest = dest_rank, tag = 1)
