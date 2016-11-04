@@ -108,6 +108,7 @@ if __name__ == "__main__":
     parser.add_argument('iteration_count', metavar='iteration_count', type = int, help='Number of iteration')
     parser.add_argument('-d', '--debug', dest = 'debug', default = False, action = 'store_true', help = 'Enable debug')
     parser.add_argument('-s', '--square', dest = 'square', default = False, action = 'store_true', help = 'Calculate and print out the root mean square error.')
+    parser.add_argument('-t', '--time', dest = 'time', default = False, action = 'store_true', help = 'Print out runtime.')
     args = parser.parse_args()
 
     nprocs = comm.Get_size()
@@ -136,94 +137,116 @@ if __name__ == "__main__":
     block = Block(block_size)
 
     if rank == nprocs / 2:
-        block.val1[1][N/2] = 1
-
+        if nprocs == 1:
+            block.val1[N/2 + 1][N/2] = 1
+        else:
+            block.val1[1][N/2] = 1
 
     squares = 0
-
     start = time.time()
 
     for iteration in xrange(iteration_count):
-        if is_top_block(rank):
-            logging.debug("From %s to %s with dimension %s" % (rank, rank + 1, block.val1[-2].shape))
-            send_array(block.val1[-2], dest = rank + 1)
-            logging.debug("Finished sending from %s to %s" % (rank, rank + 1))
-            block.val1[-1] = recv_array(source = rank + 1)
-            logging.debug("Me is {} received from {}".format(rank, rank + 1))
+        if nprocs == 1:
+            block.update_inner(2, N - 1)
+            block.update_left_right_border(2, N - 1)
 
-            # Update inner values
-            block.update_inner(2, block_size + 1)
-
-            # Update border values
-            block.update_left_right_border(2, block_size + 1)
-
-            # Update top border
+            # Update top and bot border
             for col in xrange(1, N - 1):
-                block.new_val[1][col] = G * block.new_val[2][col]
+                block.new_val[1][col] = G * block.new_val[2][col] # Top
+                block.new_val[-2][col] = G * block.new_val[-3][col] # Bot
 
-            # Update corners
+            # Update corner
             # Left corner
-            block.new_val[1][0] = G * block.new_val[2][0]
+            block.new_val[1][0] = G * block.new_val[2][0] # Top left
+            block.new_val[-2][0] = G * block.new_val[-3][0] # Bot left
 
             # Right corner
-            block.new_val[1][N-1] = G * block.new_val[1][N-2]
-
-        elif is_bot_block(rank):
-            logging.debug("From %s to %s with dimension %s" % (rank, rank - 1, block.val1[1].shape))
-            send_array(block.val1[1], dest = rank - 1)
-            logging.debug("Finished sending from %s to %s" % (rank, rank - 1))
-            block.val1[0] = recv_array(source = rank - 1)
-            logging.debug("Me is {} received from {}".format(rank, rank - 1))
-
-            # Update inner values
-            block.update_inner(1, block_size)
-
-            # Update border values
-            block.update_left_right_border(1, block_size)
-
-            # Update bot border
-            for col in xrange(1, N - 1):
-                block.new_val[-2][col] = G * block.new_val[-3][col]
-
-            # Update corners
-            # Left corner
-            block.new_val[-2][0] = G * block.new_val[-3][0]
-
-            # Right corner
-            block.new_val[-2][N-1] = G * block.new_val[-2][N-2]
+            block.new_val[1][N-1] = G * block.new_val[1][N-2] # Top right
+            block.new_val[-2][N-1] = G * block.new_val[-2][N-2] # Bot right
         else:
-            logging.debug("Start sending from {} to {} and {}....".format(rank, rank - 1, rank + 1))
-            send_array(block.val1[1], dest = rank - 1)
-            logging.debug("Finished sending from {} to {}....".format(rank, rank - 1))
-            send_array(block.val1[-2], dest = rank + 1)
-            logging.debug("Finished sending from {} to {}....".format(rank, rank + 1))
+            if is_top_block(rank):
+                logging.debug("From %s to %s with dimension %s" % (rank, rank + 1, block.val1[-2].shape))
+                send_array(block.val1[-2], dest = rank + 1)
+                logging.debug("Finished sending from %s to %s" % (rank, rank + 1))
+                block.val1[-1] = recv_array(source = rank + 1)
+                logging.debug("Me is {} received from {}".format(rank, rank + 1))
 
-            logging.debug("Waiting from {} and {}".format(rank - 1, rank + 1))
-            block.val1[0] = recv_array(source = rank - 1)
-            logging.debug("I am {} and received from {}".format(rank, rank - 1))
-            block.val1[-1] = recv_array(source = rank + 1)
-            logging.debug("I am {} and received from {}".format(rank, rank + 1))
-            logging.debug("Finished receiving...")
+                # Update inner values
+                block.update_inner(2, block_size + 1)
 
-            # Update the inner values
-            block.update_inner(1, block_size + 1)
+                # Update border values
+                block.update_left_right_border(2, block_size + 1)
 
-            # Update border values
-            block.update_left_right_border(1, block_size + 1)
+                # Update top border
+                for col in xrange(1, N - 1):
+                    block.new_val[1][col] = G * block.new_val[2][col]
+
+                # Update corners
+                # Left corner
+                block.new_val[1][0] = G * block.new_val[2][0]
+
+                # Right corner
+                block.new_val[1][N-1] = G * block.new_val[1][N-2]
+
+            elif is_bot_block(rank):
+                logging.debug("From %s to %s with dimension %s" % (rank, rank - 1, block.val1[1].shape))
+                send_array(block.val1[1], dest = rank - 1)
+                logging.debug("Finished sending from %s to %s" % (rank, rank - 1))
+                block.val1[0] = recv_array(source = rank - 1)
+                logging.debug("Me is {} received from {}".format(rank, rank - 1))
+
+                # Update inner values
+                block.update_inner(1, block_size)
+
+                # Update border values
+                block.update_left_right_border(1, block_size)
+
+                # Update bot border
+                for col in xrange(1, N - 1):
+                    block.new_val[-2][col] = G * block.new_val[-3][col]
+
+                # Update corners
+                # Left corner
+                block.new_val[-2][0] = G * block.new_val[-3][0]
+
+                # Right corner
+                block.new_val[-2][N-1] = G * block.new_val[-2][N-2]
+            else:
+                logging.debug("Start sending from {} to {} and {}....".format(rank, rank - 1, rank + 1))
+                send_array(block.val1[1], dest = rank - 1)
+                logging.debug("Finished sending from {} to {}....".format(rank, rank - 1))
+                send_array(block.val1[-2], dest = rank + 1)
+                logging.debug("Finished sending from {} to {}....".format(rank, rank + 1))
+
+                logging.debug("Waiting from {} and {}".format(rank - 1, rank + 1))
+                block.val1[0] = recv_array(source = rank - 1)
+                logging.debug("I am {} and received from {}".format(rank, rank - 1))
+                block.val1[-1] = recv_array(source = rank + 1)
+                logging.debug("I am {} and received from {}".format(rank, rank + 1))
+                logging.debug("Finished receiving...")
+
+                # Update the inner values
+                block.update_inner(1, block_size + 1)
+
+                # Update border values
+                block.update_left_right_border(1, block_size + 1)
 
         block.update()
 
         if rank == nprocs / 2:
+            to_print = block.val1[1][N/2] if nprocs != 1 else block.val1[N/2 + 1][N/2]
+
             if args.debug:
-                logging.info("-----> {}".format(block.val1[1][N/2]))
+                logging.info("-----> {}".format(to_print))
             else:
-                print "{},".format(block.val1[1][N/2])
+                print "{},".format(to_print)
 
             if args.square:
-                squares += (block.val1[1][N/2] - output.output[iteration]) ** 2
+                squares += (to_print - output.output[iteration]) ** 2
 
     if args.square and rank == nprocs / 2:
         print "Root mean squares: {}".format(math.sqrt(squares / iteration_count))
 
-    if rank == 0:
-        logging.info("Took %s" % (time.time() - start))
+    comm.Barrier()
+    if rank == 0 and args.time:
+        logging.info("With {} core(s) and iteration count = {}, took {}s".format(nprocs, iteration_count, time.time() - start))
