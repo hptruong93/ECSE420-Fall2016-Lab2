@@ -1,5 +1,5 @@
 import output
-import math
+# import math
 
 import logging
 import argparse
@@ -245,7 +245,7 @@ if __name__ == "__main__":
                 squares += (to_print - output.output[iteration]) ** 2
 
     if args.square and rank == nprocs / 2:
-        print "Root mean squares: {}".format(math.sqrt(squares / iteration_count))
+        print "Root mean squares: {} and is it good? {}".format(squares / iteration_count, squares / iteration_count < 0.00001)
 
     comm.Barrier()
     if rank == 0 and args.time:

@@ -88,7 +88,7 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
     my_coordinate = get_coordinate(rank)
 
-    iteration_count = sys.argv[1]
+    iteration_count = int(sys.argv[1])
 
     val2 = 0
     val1 = 0 if my_coordinate != (2,2) else 1
@@ -133,4 +133,7 @@ if __name__ == "__main__":
         val2 = val1
         val1 = new_val
 
-        print("Iteration {} -->  ({}, {}) [{}]: {}".format(iteration, my_coordinate[0], my_coordinate[1],rank, val1))
+        # print("Iteration {} -->  ({}, {}) [{}]: {}".format(iteration, my_coordinate[0], my_coordinate[1],rank, val1))
+
+        if rank == get_rank(2, 2):
+            print(str(val1) + ',')
